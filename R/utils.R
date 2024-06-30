@@ -1,10 +1,11 @@
-##' internal function to read a stac query and get all its hrefs (every variable)
+# internal function to read a stac query and get all its hrefs (every variable)
 hrefs0 <- function(x) {
   a <- jsonlite::fromJSON(x)
   l <- lapply(a$features$assets, \(.x) .x$href)
   nms <- names(a$features$assets)
 
-  hrefs <- tibble::as_tibble(setNames(l, nms))
+  names(l) <- nms
+  hrefs <- tibble::as_tibble(l)
   if(("next" %in% a$links$rel)) {
     idx <- which("next" == a$links$rel)
     hrefs <- rbind(hrefs, Recall(a$links$href[idx]))

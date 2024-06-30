@@ -2,7 +2,7 @@
 % Please edit documentation in R/scene.R
 \name{scene}
 \alias{scene}
-\title{Title}
+\title{Query Sentinel imagery}
 \usage{
 scene(
   x = cbind(146.614867, -43.298699),
@@ -11,12 +11,33 @@ scene(
   proj = NULL,
   res = max(c(10, wh/1024)),
   silent = FALSE,
-  keep = 6L
+  dry_run = FALSE
 )
 }
 \arguments{
-\item{silent}{}
+\item{x}{location}
+
+\item{date}{vector of date(-times)}
+
+\item{wh}{width height in metres around 'location'}
+
+\item{proj}{projection for scene}
+
+\item{res}{resolution desired (a default for a reasonable image size is provided)}
+
+\item{silent}{emit messages}
+
+\item{dry_run}{if TRUE only return the stac query}
+}
+\value{
+data frame of available scenes and some processed links
 }
 \description{
-Title
+user inputs a longitude,latitude and a width and height
+}
+\details{
+Scenes are returned in the decreasing order of file size of the processed local scene.
+}
+\examples{
+scene(dry_run = TRUE)
 }

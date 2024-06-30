@@ -1,24 +1,28 @@
-## user inputs a longitude,latitude and a width and height
+##
 
-#' Title
+#' Query Sentinel imagery
 #'
-#' @param x
-#' @param date
-#' @param wh
-#' @param proj
-#' @param res
-#' @param silent
+#' user inputs a longitude,latitude and a width and height
 #'
-#' @return
+#' Scenes are returned in the decreasing order of file size of the processed local scene.
+#' @param x location
+#' @param date vector of date(-times)
+#' @param wh width height in metres around 'location'
+#' @param proj projection for scene
+#' @param res resolution desired (a default for a reasonable image size is provided)
+#' @param silent emit messages
+#' @param dry_run if TRUE only return the stac query
+#'
+#' @return data frame of available scenes and some processed links
 #' @export
 #'
 #' @examples
-#' # scene()
+#' scene(dry_run = TRUE)
 scene <- function(x = cbind(146.614867, -43.298699),
                   date = Sys.Date() + c(-14, -2),
                   wh = c(5000), proj = NULL,
                   res = max(c(10, wh/1024)),
-                  silent = FALSE, keep = 6L) {
+                  silent = FALSE, dry_run = FALSE) {
     if (is.null(proj)) {
       proj <- sprintf("+proj=laea +lon_0=%f +lat_0=%f", x[1], x[2])
       mp <- cbind(0, 0)
@@ -40,27 +44,27 @@ scene <- function(x = cbind(146.614867, -43.298699),
 
   l <- split(srcs, srcs$solarday)
   ##return(l)
-  keepl <- length(l)
-  mk <- min(c(keep, keepl))
   if (!silent) {
-    message(sprintf("processing %i (keep) of %i scenes from %i (solar) days", mk, nrow(srcs), length(l)))
+    message(sprintf("processing %i scenes from %i (solar) days", nrow(srcs), length(l)))
 
     message(sprintf("in longlat region lonmin,lonmax,latmin,latmax %f,%f,%f,%f", stacex[1], stacex[2], stacex[3], stacex[4]))
   }
 
-
- out <- furrr::future_map(l, function(.x) tibble::tibble(date = .x$solarday[1L],
-                                                         dsn = vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$visual), target_crs = proj, target_res = res,
-                                                                                       target_ext = ex)[[1L]],
+if (dry_run) return(srcs)
+ out <- furrr::future_map(l, function(.x) {
+   dsn <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$visual), target_crs = proj, target_res = res,
+                           target_ext = ex)[[1L]]
+   tibble::tibble(date = .x$solarday[1L],
+                                                         dsn = dsn,
                                                          dsn_sources = list(sprintf("/vsicurl/%s", .x$visual)),
                                                          sources = list(.x),
                                                          spec = list(vapour::vapour_raster_info(dsn))
-                                                         ))
+                                                         )})
 
 dd <- do.call(rbind, out)
  dd <- dd[order(file.info(dd$dsn)$size, decreasing = TRUE), ]
- idx <- seq(1, mk)
- dd[idx, ]
+
+ dd
 }
 
 
