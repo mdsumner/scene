@@ -13,6 +13,7 @@
 #' @export
 #'
 #' @examples
+#' # scene()
 scene <- function(x = cbind(146.614867, -43.298699),
                   date = Sys.Date() + c(-14, -2),
                   wh = c(5000), proj = NULL,
@@ -38,6 +39,7 @@ scene <- function(x = cbind(146.614867, -43.298699),
   srcs$solarday <- solarday(properties$datetime)
 
   l <- split(srcs, srcs$solarday)
+  ##return(l)
   keepl <- length(l)
   mk <- min(c(keep, keepl))
   if (!silent) {
@@ -47,11 +49,59 @@ scene <- function(x = cbind(146.614867, -43.298699),
   }
 
 
- out <- furrr::future_map(l, function(.x) tibble::tibble(date = .x$solarday[1L], dsn = vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$visual), target_crs = proj, target_res = res, target_ext = ex)[[1L]],
-                                                         sources = list(.x$visual)))
+ out <- furrr::future_map(l, function(.x) tibble::tibble(date = .x$solarday[1L],
+                                                         dsn = vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$visual), target_crs = proj, target_res = res,
+                                                                                       target_ext = ex)[[1L]],
+                                                         dsn_sources = list(sprintf("/vsicurl/%s", .x$visual)),
+                                                         sources = list(.x),
+                                                         spec = list(vapour::vapour_raster_info(dsn))
+                                                         ))
 
 dd <- do.call(rbind, out)
  dd <- dd[order(file.info(dd$dsn)$size, decreasing = TRUE), ]
  idx <- seq(1, mk)
  dd[idx, ]
+}
+
+
+
+scene_ex <- function(x,
+                  date = Sys.Date() + c(-14, -2),
+                   proj = NULL,
+
+                  silent = FALSE, keep = 6L, limit = 1000) {
+  if (is.null(proj)) {
+    stop("proj must not be NULL")
+  }
+  ex <- x
+  stacex <- reproj::reproj_extent(ex, "EPSG:4326", source = proj)
+
+  qu <- sds::stacit(stacex, date, limit = limit)
+
+  srcs <- try(hrefs(qu), silent = TRUE)
+  if (inherits(srcs, "try-error")) stop("stac query failed, cannot read", qu)
+  properties <- props(qu)
+
+  srcs$solarday <- solarday(properties$datetime)
+
+  l <- split(srcs, srcs$solarday)
+ #return(l)
+  keepl <- length(l)
+  mk <- min(c(keep, keepl))
+  if (!silent) {
+    message(sprintf("processing %i (keep) of %i scenes from %i (solar) days", mk, nrow(srcs), length(l)))
+
+    message(sprintf("in longlat region lonmin,lonmax,latmin,latmax %f,%f,%f,%f", stacex[1], stacex[2], stacex[3], stacex[4]))
+  }
+
+
+  out <- furrr::future_map(l, function(.x) tibble::tibble(date = .x$solarday[1L],
+                                                          dsn = vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$visual), target_crs = proj,
+                                                                                        target_ext = ex)[[1L]],
+                                                          sources = list(.x$visual)))
+
+  dd <- do.call(rbind, out)
+  dd <- dd[order(file.info(dd$dsn)$size, decreasing = TRUE), ]
+  idx <- seq(1, mk)
+  dd[idx, ]
 }

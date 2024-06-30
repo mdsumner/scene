@@ -7,11 +7,11 @@
 scene(
   x = cbind(146.614867, -43.298699),
   date = Sys.Date() + c(-14, -2),
-  wh = c(3000),
+  wh = c(5000),
   proj = NULL,
   res = max(c(10, wh/1024)),
-  keep = 5L,
-  silent = FALSE
+  silent = FALSE,
+  keep = 6L
 )
 }
 \arguments{
