@@ -21,3 +21,4 @@ Imports:
     vapour
 URL: https://github.com/mdsumner/scene
 BugReports: https://github.com/mdsumner/scene/issues
+Remotes: hypertidy/sds
