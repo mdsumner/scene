@@ -23,6 +23,7 @@ scene <- function(x = cbind(146.614867, -43.298699),
                   wh = c(5000), proj = NULL,
                   res = max(c(10, wh/1024)),
                   silent = FALSE, dry_run = FALSE) {
+  x <- x[1L, , drop = FALSE]
     if (is.null(proj)) {
       proj <- sprintf("+proj=laea +lon_0=%f +lat_0=%f", x[1], x[2])
       mp <- cbind(0, 0)
@@ -52,19 +53,27 @@ scene <- function(x = cbind(146.614867, -43.298699),
 
 if (dry_run) return(srcs)
  out <- furrr::future_map(l, function(.x) {
-   dsn <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$visual), target_crs = proj, target_res = res,
+   #vrt <- vapour::buildvrt(sprintf("/vsicurl/%s", c(.x$red, .x$green, .x$blue)))
+   dsn0 <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$red), target_crs = proj, target_res = res,
                            target_ext = ex)[[1L]]
+   dsn1 <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$green), target_crs = proj, target_res = res,
+                                     target_ext = ex)[[1L]]
+   dsn2 <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$blue), target_crs = proj, target_res = res,
+                                     target_ext = ex)[[1L]]
+   vrt <- vapour::buildvrt(c(dsn0, dsn1, dsn1))
+   dsn <- vapour::gdal_raster_dsn(vrt)
+
    tibble::tibble(date = .x$solarday[1L],
                                                          dsn = dsn,
-                                                         dsn_sources = list(sprintf("/vsicurl/%s", .x$visual)),
+                                                         dsn_sources = list(sprintf("/vsicurl/%s", c(.x$red, .x$green, .x$blue))),
                                                          sources = list(.x),
                                                          spec = list(vapour::vapour_raster_info(dsn))
                                                          )})
 
 dd <- do.call(rbind, out)
- dd <- dd[order(file.info(dd$dsn)$size, decreasing = TRUE), ]
+dd$filesize <- file.info(dd$dsn)$size
+ dplyr::arrange(dd, dplyr::desc(filesize))
 
- dd
 }
 
 
