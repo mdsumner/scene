@@ -1,4 +1,22 @@
-##
+.scene_function <- function(.x, ex, res, proj) {
+
+  #vrt <- vapour::buildvrt(sprintf("/vsicurl/%s", c(.x$red, .x$green, .x$blue)))
+  dsn0 <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$red), target_crs = proj, target_res = res,
+                                  target_ext = ex)[[1L]]
+  dsn1 <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$green), target_crs = proj, target_res = res,
+                                  target_ext = ex)[[1L]]
+  dsn2 <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$blue), target_crs = proj, target_res = res,
+                                  target_ext = ex)[[1L]]
+  vrt <- vapour::buildvrt(c(dsn0, dsn1, dsn1))
+  dsn <- vapour::gdal_raster_dsn(vrt)[[1L]]
+
+  tibble::tibble(date = .x$solarday[1L],
+                 dsn = dsn,
+                 dsn_sources = list(sprintf("/vsicurl/%s", c(.x$red, .x$green, .x$blue))),
+                 sources = list(.x),
+                 spec = list(vapour::vapour_raster_info(dsn))
+  )
+}
 
 #' Query Sentinel imagery
 #'
@@ -13,6 +31,8 @@
 #' @param silent emit messages
 #' @param dry_run if TRUE only return the stac query
 #'
+#' @importFrom purrr map in_parallel
+#' @importFrom mirai daemons_set
 #' @return data frame of available scenes and some processed links
 #' @export
 #'
@@ -52,29 +72,26 @@ scene <- function(x = cbind(146.614867, -43.298699),
   }
 
 if (dry_run) return(srcs)
- out <- furrr::future_map(l, function(.x) {
-   #vrt <- vapour::buildvrt(sprintf("/vsicurl/%s", c(.x$red, .x$green, .x$blue)))
-   dsn0 <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$red), target_crs = proj, target_res = res,
-                           target_ext = ex)[[1L]]
-   dsn1 <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$green), target_crs = proj, target_res = res,
-                                     target_ext = ex)[[1L]]
-   dsn2 <- vapour::gdal_raster_dsn(sprintf("/vsicurl/%s", .x$blue), target_crs = proj, target_res = res,
-                                     target_ext = ex)[[1L]]
-   vrt <- vapour::buildvrt(c(dsn0, dsn1, dsn1))
-   dsn <- vapour::gdal_raster_dsn(vrt)
 
-   tibble::tibble(date = .x$solarday[1L],
-                                                         dsn = dsn,
-                                                         dsn_sources = list(sprintf("/vsicurl/%s", c(.x$red, .x$green, .x$blue))),
-                                                         sources = list(.x),
-                                                         spec = list(vapour::vapour_raster_info(dsn))
-                                                         )})
 
+if (is.null(proj)) {
+  print(stacex)
+  proj <- "EPSG:4326"
+}
+  if (mirai::daemons_set() && length(l) > 1L) {
+
+     out <- purrr::map(l, purrr::in_parallel(\(x) .scene_function(x, ex, res, proj), .scene_function = .scene_function, ex = ex, res = res, proj = proj))
+  } else {
+    message("no parallel setting for running multiple scenes, consider setting `mirai::daemons(<ncpus>)` before running scene()")
+    out <- purrr::map(l, .scene_function, ex = ex, res = res, proj = proj)
+  }
 dd <- do.call(rbind, out)
 dd$filesize <- file.info(dd$dsn)$size
  dplyr::arrange(dd, dplyr::desc(filesize))
 
 }
+
+
 
 
 

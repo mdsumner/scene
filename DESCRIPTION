@@ -1,6 +1,6 @@
 Package: scene
 Title: Get satelite imagery really easily
-Version: 0.0.0.9003
+Version: 0.0.0.9004
 Authors@R: 
     c(person(given = "Michael D.",
            family = "Sumner",
@@ -13,12 +13,13 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports: 
-    furrr,
+    purrr,
     jsonlite,
     reproj,
     sds,
     tibble,
-    vapour
+    vapour,
+    mirai
 URL: https://github.com/mdsumner/scene
 BugReports: https://github.com/mdsumner/scene/issues
 Remotes: hypertidy/sds
